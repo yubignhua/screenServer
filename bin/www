@@ -3,7 +3,6 @@
 /**
  * Module dependencies.
  */
-
 var app = require('../app');
 var debug = require('debug')('server:server');
 var http = require('http');
@@ -83,9 +82,27 @@ function onError(error) {
  */
 
 function onListening() {
-  var addr = server.address();
+  var addr = server.address(); 
   var bind = typeof addr === 'string'
     ? 'pipe ' + addr
     : 'port ' + addr.port;
   debug('Listening on ' + bind);
+  console.log('serve start Listening on ======', bind)
+  console.log('Server IP addresses:');
+  const os = require('os');
+  const interfaces = os.networkInterfaces();
+  
+  Object.keys(interfaces).forEach((interfaceName) => {
+    interfaces[interfaceName].forEach((iface) => {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        console.log(`  ${interfaceName}: http://${iface.address}:${port}`);
+      }
+    });
+  });
+  
+  console.log(`  localhost: http://localhost:${port}`);
+  console.log(`  127.0.0.1: http://127.0.0.1:${port}`);
+  
+
+  
 }
