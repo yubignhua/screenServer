@@ -1,22 +1,16 @@
 #!/usr/bin/env node
-
-/**
- * Module dependencies.
- */
 var app = require('../app');
 var debug = require('debug')('server:server');
 var http = require('http');
+
+// 从uuid模块中导入v4函数并重命名为uuidv4，用于生成随机的UUID（通用唯一标识符）
 const { v4: uuidv4 } = require('uuid');
 /**
  * Get port from environment and store in Express.
  */
-
 var port = normalizePort(process.env.PORT || '3001');
 app.set('port', port);
 
-/**
- * Create HTTP server.
- */
 
 var server = http.createServer(app);
 var socket = require('../routes/index');

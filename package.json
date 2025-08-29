@@ -3,17 +3,34 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node ./bin/www"
+    "start": "node ./bin/www",
+    "test-connections": "node test-connections.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "db:init": "node scripts/init-database.js",
+    "db:init:force": "node scripts/init-database.js --force",
+    "db:seed": "node scripts/init-database.js --seed",
+    "db:test": "node scripts/init-database.js --test",
+    "db:reset": "node scripts/init-database.js --force --seed"
   },
   "dependencies": {
     "cookie-parser": "~1.4.4",
     "cors": "^2.8.5",
     "debug": "~2.6.9",
+    "dotenv": "^17.2.1",
     "express": "~4.16.1",
+    "express-validator": "^7.2.1",
     "http-errors": "~1.6.3",
     "jade": "~1.11.0",
     "morgan": "~1.9.1",
+    "mysql2": "^3.14.3",
+    "redis": "^5.8.2",
+    "sequelize": "^6.37.7",
     "socket.io": "^4.7.5",
     "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "jest": "^30.1.1",
+    "supertest": "^7.1.4"
   }
 }

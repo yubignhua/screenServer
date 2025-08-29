@@ -5,6 +5,17 @@ var socketIo = require("socket.io");
 var io;
 let connectedUsers = [];
 let rooms = [];
+
+// Import chat services
+const ChatService = require('../services/ChatService');
+const NotificationService = require('../services/NotificationService');
+const OperatorService = require('../services/OperatorService');
+
+// Initialize notification service
+const notificationService = new NotificationService();
+
+// Store active chat connections
+let chatConnections = new Map(); // socketId -> { userId, sessionId, type: 'user'|'operator' }
 //创建路由验证房间是否存在
 router.get("/api/room-exists/:roomId", (req, res) => {
   const { roomId } = req.params;
@@ -72,6 +83,27 @@ module.exports = {
       });
       socket.on("direct-message", (data) => {
         directMessageHandler(data, socket);
+      });
+
+      // Chat event handlers
+      socket.on("user-join-chat", (data) => {
+        userJoinChatHandler(data, socket);
+      });
+
+      socket.on("user-send-message", (data) => {
+        userSendMessageHandler(data, socket);
+      });
+
+      socket.on("operator-join-session", (data) => {
+        operatorJoinSessionHandler(data, socket);
+      });
+
+      socket.on("operator-send-message", (data) => {
+        operatorSendMessageHandler(data, socket);
+      });
+
+      socket.on("operator-status-change", (data) => {
+        operatorStatusChangeHandler(data, socket);
       });
     });
 
@@ -155,7 +187,7 @@ module.exports = {
     };
 
     const disconnectHandler = (socket) => {
-      //查询要离开会议房间的用户
+      // Handle video conference disconnection
       const user = connectedUsers.find((user) => user.socketId === socket.id);
 
       if (user) {
@@ -182,6 +214,48 @@ module.exports = {
           //从rooms数组中删除该房间的信息
           rooms = rooms.filter((r) => r.id !== room.id);
         }
+      }
+
+      // Handle chat disconnection
+      const chatConnection = chatConnections.get(socket.id);
+      if (chatConnection) {
+        const { sessionId, type, userId, operatorId } = chatConnection;
+        
+        console.log(`${type} disconnected from chat session ${sessionId}`);
+
+        // Leave chat session room
+        if (sessionId) {
+          socket.leave(`chat-session-${sessionId}`);
+          
+          // Notify other participants in the session
+          socket.to(`chat-session-${sessionId}`).emit("participant-disconnected", {
+            sessionId,
+            participantType: type,
+            participantId: userId || operatorId,
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // If operator disconnected, update their status to offline
+        if (type === 'operator' && operatorId) {
+          OperatorService.updateOperatorStatus(operatorId, 'offline')
+            .then((result) => {
+              if (result.success) {
+                // Broadcast operator offline status
+                socket.broadcast.emit("operator-status-changed", {
+                  operatorId,
+                  status: 'offline',
+                  timestamp: new Date().toISOString()
+                });
+              }
+            })
+            .catch((error) => {
+              console.error("Error updating operator status on disconnect:", error);
+            });
+        }
+
+        // Remove from chat connections
+        chatConnections.delete(socket.id);
       }
     };
 
@@ -224,6 +298,382 @@ module.exports = {
           identity: data.identity,
         };
         socket.emit("direct-message", authorData);
+      }
+    };
+
+    // Chat event handlers
+    const userJoinChatHandler = async (data, socket) => {
+      try {
+        const { userId } = data;
+        
+        if (!userId) {
+          socket.emit("chat-error", { 
+            error: "User ID is required",
+            code: "MISSING_USER_ID"
+          });
+          return;
+        }
+
+        console.log(`User ${userId} joining chat with socket ${socket.id}`);
+
+        // Create or get existing chat session
+        const sessionResult = await ChatService.createChatSession(userId);
+        
+        if (!sessionResult.success) {
+          socket.emit("chat-error", { 
+            error: sessionResult.message,
+            code: "SESSION_CREATION_FAILED"
+          });
+          return;
+        }
+
+        const { session, isNew } = sessionResult;
+
+        // Store connection info
+        chatConnections.set(socket.id, {
+          userId,
+          sessionId: session.id,
+          type: 'user'
+        });
+
+        // Join socket room for this session
+        socket.join(`chat-session-${session.id}`);
+
+        // Send session info to user
+        socket.emit("chat-session-created", {
+          sessionId: session.id,
+          userId,
+          status: session.status,
+          isNew,
+          timestamp: new Date().toISOString()
+        });
+
+        // If new session, send notification to admin system
+        if (isNew) {
+          await notificationService.sendNewChatNotification({
+            sessionId: session.id,
+            userId,
+            message: "New chat session started",
+            timestamp: new Date()
+          });
+        }
+
+        // Load and send message history
+        const historyResult = await ChatService.getMessageHistory(session.id, {
+          limit: 50,
+          order: 'ASC'
+        });
+
+        if (historyResult.success) {
+          socket.emit("message-history", {
+            sessionId: session.id,
+            messages: historyResult.messages,
+            pagination: historyResult.pagination
+          });
+        }
+
+        console.log(`User ${userId} successfully joined chat session ${session.id}`);
+
+      } catch (error) {
+        console.error("Error in userJoinChatHandler:", error);
+        socket.emit("chat-error", { 
+          error: "Internal server error",
+          code: "INTERNAL_ERROR"
+        });
+      }
+    };
+
+    const userSendMessageHandler = async (data, socket) => {
+      try {
+        const { content, messageType = 'text' } = data;
+        const connection = chatConnections.get(socket.id);
+
+        if (!connection) {
+          socket.emit("chat-error", { 
+            error: "User not connected to chat",
+            code: "NOT_CONNECTED"
+          });
+          return;
+        }
+
+        if (!content || content.trim().length === 0) {
+          socket.emit("chat-error", { 
+            error: "Message content is required",
+            code: "EMPTY_MESSAGE"
+          });
+          return;
+        }
+
+        const { userId, sessionId } = connection;
+
+        // Send message through ChatService
+        const messageResult = await ChatService.sendMessage(
+          sessionId,
+          userId,
+          'user',
+          content.trim(),
+          messageType
+        );
+
+        if (!messageResult.success) {
+          socket.emit("chat-error", { 
+            error: messageResult.message,
+            code: "MESSAGE_SEND_FAILED"
+          });
+          return;
+        }
+
+        const { message, session } = messageResult;
+
+        // Broadcast message to all participants in the session
+        const messageData = {
+          id: message.id,
+          sessionId: message.sessionId,
+          senderId: message.senderId,
+          senderType: message.senderType,
+          content: message.content,
+          messageType: message.messageType,
+          timestamp: message.createdAt.toISOString()
+        };
+
+        // Send to all sockets in the session room
+        io.to(`chat-session-${sessionId}`).emit("message-received", messageData);
+
+        // Send notification to admin system
+        await notificationService.sendMessageNotification({
+          sessionId,
+          senderId: userId,
+          senderType: 'user',
+          content: content.trim(),
+          timestamp: message.createdAt
+        });
+
+        console.log(`Message sent by user ${userId} in session ${sessionId}`);
+
+      } catch (error) {
+        console.error("Error in userSendMessageHandler:", error);
+        socket.emit("chat-error", { 
+          error: "Failed to send message",
+          code: "INTERNAL_ERROR"
+        });
+      }
+    };
+
+    const operatorJoinSessionHandler = async (data, socket) => {
+      try {
+        const { operatorId, sessionId } = data;
+
+        if (!operatorId || !sessionId) {
+          socket.emit("chat-error", { 
+            error: "Operator ID and Session ID are required",
+            code: "MISSING_REQUIRED_FIELDS"
+          });
+          return;
+        }
+
+        console.log(`Operator ${operatorId} joining session ${sessionId} with socket ${socket.id}`);
+
+        // Assign operator to session
+        console.log('Calling ChatService.assignOperatorToSession...');
+        const assignResult = await ChatService.assignOperatorToSession(sessionId, operatorId);
+        console.log('assignOperatorToSession result:', assignResult);
+
+        if (!assignResult.success) {
+          console.log('assignOperatorToSession failed:', assignResult);
+          socket.emit("chat-error", { 
+            error: assignResult.message,
+            code: "OPERATOR_ASSIGNMENT_FAILED"
+          });
+          return;
+        }
+
+        const { session, operator } = assignResult;
+
+        // Store connection info
+        chatConnections.set(socket.id, {
+          operatorId,
+          sessionId,
+          type: 'operator'
+        });
+
+        // Join socket room for this session
+        socket.join(`chat-session-${sessionId}`);
+
+        // Notify operator of successful join
+        socket.emit("operator-session-joined", {
+          sessionId,
+          operatorId,
+          operatorName: operator.name,
+          sessionStatus: session.status,
+          timestamp: new Date().toISOString()
+        });
+
+        // Notify user that operator has joined
+        socket.to(`chat-session-${sessionId}`).emit("operator-joined", {
+          sessionId,
+          operatorId,
+          operatorName: operator.name,
+          timestamp: new Date().toISOString()
+        });
+
+        // Load and send message history to operator
+        const historyResult = await ChatService.getMessageHistory(sessionId, {
+          limit: 50,
+          order: 'ASC'
+        });
+
+        if (historyResult.success) {
+          socket.emit("message-history", {
+            sessionId,
+            messages: historyResult.messages,
+            pagination: historyResult.pagination
+          });
+        }
+
+        console.log(`Operator ${operatorId} successfully joined session ${sessionId}`);
+
+      } catch (error) {
+        console.error("Error in operatorJoinSessionHandler:", error);
+        socket.emit("chat-error", { 
+          error: "Failed to join session",
+          code: "INTERNAL_ERROR"
+        });
+      }
+    };
+
+    const operatorSendMessageHandler = async (data, socket) => {
+      try {
+        const { content, messageType = 'text' } = data;
+        const connection = chatConnections.get(socket.id);
+
+        if (!connection || connection.type !== 'operator') {
+          socket.emit("chat-error", { 
+            error: "Operator not connected to session",
+            code: "NOT_CONNECTED"
+          });
+          return;
+        }
+
+        if (!content || content.trim().length === 0) {
+          socket.emit("chat-error", { 
+            error: "Message content is required",
+            code: "EMPTY_MESSAGE"
+          });
+          return;
+        }
+
+        const { operatorId, sessionId } = connection;
+
+        // Send message through ChatService
+        const messageResult = await ChatService.sendMessage(
+          sessionId,
+          operatorId,
+          'operator',
+          content.trim(),
+          messageType
+        );
+
+        if (!messageResult.success) {
+          socket.emit("chat-error", { 
+            error: messageResult.message,
+            code: "MESSAGE_SEND_FAILED"
+          });
+          return;
+        }
+
+        const { message } = messageResult;
+
+        // Broadcast message to all participants in the session
+        const messageData = {
+          id: message.id,
+          sessionId: message.sessionId,
+          senderId: message.senderId,
+          senderType: message.senderType,
+          content: message.content,
+          messageType: message.messageType,
+          timestamp: message.createdAt.toISOString()
+        };
+
+        // Send to all sockets in the session room
+        io.to(`chat-session-${sessionId}`).emit("message-received", messageData);
+
+        console.log(`Message sent by operator ${operatorId} in session ${sessionId}`);
+
+      } catch (error) {
+        console.error("Error in operatorSendMessageHandler:", error);
+        socket.emit("chat-error", { 
+          error: "Failed to send message",
+          code: "INTERNAL_ERROR"
+        });
+      }
+    };
+
+    const operatorStatusChangeHandler = async (data, socket) => {
+      try {
+        const { operatorId, status } = data;
+
+        if (!operatorId || !status) {
+          socket.emit("chat-error", { 
+            error: "Operator ID and status are required",
+            code: "MISSING_REQUIRED_FIELDS"
+          });
+          return;
+        }
+
+        console.log(`Operator ${operatorId} changing status to ${status}`);
+
+        // Update operator status
+        const statusResult = await OperatorService.updateOperatorStatus(operatorId, status);
+
+        if (!statusResult.success) {
+          socket.emit("chat-error", { 
+            error: statusResult.message,
+            code: "STATUS_UPDATE_FAILED"
+          });
+          return;
+        }
+
+        const { operator, actualOperatorId } = statusResult;
+        const realOperatorId = actualOperatorId || operatorId; // 使用实际的客服ID
+
+        // Store operator connection if going online
+        if (status === 'online') {
+          // Update connection info if exists
+          const connection = chatConnections.get(socket.id);
+          if (connection) {
+            connection.operatorId = realOperatorId;
+          } else {
+            chatConnections.set(socket.id, {
+              operatorId: realOperatorId,
+              type: 'operator',
+              sessionId: null
+            });
+          }
+        }
+
+        // Notify operator of status change
+        socket.emit("operator-status-updated", {
+          operatorId: realOperatorId, // 返回实际的客服ID
+          status: operator.status,
+          timestamp: new Date().toISOString()
+        });
+
+        // Broadcast status change to all connected clients
+        socket.broadcast.emit("operator-status-changed", {
+          operatorId: realOperatorId,
+          operatorName: operator.name,
+          status: operator.status,
+          timestamp: new Date().toISOString()
+        });
+
+        console.log(`Operator ${realOperatorId} status updated to ${status}`);
+
+      } catch (error) {
+        console.error("Error in operatorStatusChangeHandler:", error);
+        socket.emit("chat-error", { 
+          error: "Failed to update status",
+          code: "INTERNAL_ERROR"
+        });
       }
     };
     return io;
