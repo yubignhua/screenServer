@@ -9,7 +9,7 @@ var usersRouter = require('./routes/users');
 
 // Import chat and operator routes
 var chatRouter = require('./routes/chat');
-var operatorsRouter = require('./routes/operators');
+var operatorRouter = require('./routes/operator');
 
 // Import database and Redis configuration
 const { testDatabaseConnection, initializeDatabase } = require('./models');
@@ -71,19 +71,16 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// 配置 router 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
-
-// Add chat and operator API routes
 app.use('/api/chat', chatRouter);
-app.use('/api/operators', operatorsRouter);
-
+app.use('/api/operators', operatorRouter);
 // Add simple notification endpoint for testing
-app.post('/api/notifications', (req, res) => {
+app.post('/api/notifications', (req, res) => { 
   console.log('Received notification:', req.body);
   res.json({ success: true, message: 'Notification received' });
 });
-
 // Serve test files for development
 app.use('/test', express.static(path.join(__dirname, '../chatBox')));
 
@@ -92,13 +89,13 @@ app.use(function(req, res, next) {
   next(createError(404));
 });
 
-// Use custom error handler
+// 自定义的错误处理方法
 app.use(errorHandler);
 
-// Export Redis client for use in other modules
+// 导出 Redis 客户端以供其他模块使用 Export Redis client for use in other modules 
 app.locals.redisClient = redisClient;
 
-// Graceful shutdown handling
+// 优雅的关闭处理
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully...');
   if (redisClient) {

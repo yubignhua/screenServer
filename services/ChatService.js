@@ -195,7 +195,10 @@ class ChatService {
       } = options;
 
       // 构建查询条件
-      const whereClause = { userId };
+      const whereClause = {};
+      if (userId) {
+        whereClause.userId = userId;
+      }
       if (status) {
         whereClause.status = status;
       }
@@ -341,7 +344,7 @@ class ChatService {
           operator = await Operator.create({
             id: operatorId, // 使用请求的ID作为客服ID
             name: `Test Operator ${operatorId.slice(-8)}`,
-            email: `${operatorId.slice(-8)}@test.com`,
+            email: `${operatorId.slice(-8)}_${Date.now()}@test.com`,
             status: 'online',
             lastActiveAt: new Date()
           });
@@ -352,7 +355,7 @@ class ChatService {
           try {
             operator = await Operator.create({
               name: `Test Operator ${operatorId.slice(-8)}`,
-              email: `${operatorId.slice(-8)}@test.com`,
+              email: `${operatorId.slice(-8)}_${Date.now()}@test.com`,
               status: 'online',
               lastActiveAt: new Date()
             });
@@ -473,6 +476,178 @@ class ChatService {
         success: false,
         error: error.message,
         message: 'Failed to get unread message count'
+      };
+    }
+  }
+
+  /**
+   * 获取所有历史会话列表（支持分页和搜索）
+   * @param {Object} options - 查询选项
+   * @returns {Promise<Object>} 历史会话列表
+   */
+  async getAllHistorySessions(options = {}) {
+    try {
+      console.log('🔍 getAllHistorySessions called with options:', options);
+      
+      const {
+        page = 1,
+        limit = 100,
+        keyword = null,
+        status = null,
+        startDate = null,
+        endDate = null,
+        includeMessages = false
+      } = options;
+
+      // 计算偏移量
+      const offset = (page - 1) * limit;
+
+      // 构建查询条件
+      const whereConditions = {};
+      
+      // 状态过滤 - 如果指定了状态就按状态过滤，否则显示所有有消息的会话
+      if (status) {
+        whereConditions.status = status;
+      }
+      // 不再限制状态，而是通过消息数量来判断是否为历史会话
+
+      // 关键词搜索（用户名或会话ID）
+      if (keyword) {
+        const { Op } = require('sequelize');
+        whereConditions[Op.or] = [
+          { userId: { [Op.like]: `%${keyword}%` } },
+          { id: { [Op.like]: `%${keyword}%` } }
+        ];
+      }
+
+      // 时间范围过滤
+      if (startDate || endDate) {
+        const { Op } = require('sequelize');
+        whereConditions.updatedAt = {};
+        if (startDate) {
+          whereConditions.updatedAt[Op.gte] = new Date(startDate);
+        }
+        if (endDate) {
+          whereConditions.updatedAt[Op.lte] = new Date(endDate);
+        }
+      }
+
+      // 查询会话列表 - 只显示有用户消息的会话
+      const { Op } = require('sequelize');
+      
+      // 首先获取所有有用户消息的会话ID
+      const sessionIdsWithUserMessages = await ChatMessage.findAll({
+        attributes: ['sessionId'],
+        where: {
+          senderType: { [Op.ne]: 'system' }
+        },
+        group: ['sessionId'],
+        raw: true
+      });
+      
+      const sessionIds = sessionIdsWithUserMessages.map(item => item.sessionId);
+      
+      if (sessionIds.length === 0) {
+        return {
+          success: true,
+          sessions: [],
+          pagination: {
+            page: page,
+            limit: limit,
+            total: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrev: false
+          },
+          message: 'No sessions with user messages found'
+        };
+      }
+      
+      // 添加会话ID过滤条件
+      whereConditions.id = { [Op.in]: sessionIds };
+      
+      const sessions = await ChatSession.findAll({
+        where: whereConditions,
+        order: [['updatedAt', 'DESC']],
+        limit: limit,
+        offset: offset,
+        include: [
+          {
+            model: ChatMessage,
+            as: 'messages',
+            attributes: ['id', 'content', 'createdAt', 'senderType'],
+            limit: includeMessages ? undefined : 1,
+            order: [['createdAt', 'DESC']],
+            required: false // 改为false，因为我们已经通过sessionIds过滤了
+          }
+        ]
+      });
+
+      // 获取总数 - 只统计有用户消息的会话
+      const total = sessionIds.length;
+
+      // 处理会话数据
+      const processedSessions = await Promise.all(sessions.map(async session => {
+        const sessionData = session.toJSON();
+        
+        // 添加最后一条消息（优先显示非系统消息）
+        if (sessionData.messages && sessionData.messages.length > 0) {
+          // 查找最后一条非系统消息
+          const { Op } = require('sequelize');
+          const lastUserMessage = await ChatMessage.findOne({
+            where: { 
+              sessionId: session.id,
+              senderType: { [Op.ne]: 'system' }
+            },
+            order: [['createdAt', 'DESC']]
+          });
+          
+          if (lastUserMessage) {
+            sessionData.lastMessage = lastUserMessage.content;
+          } else {
+            sessionData.lastMessage = sessionData.messages[0].content;
+          }
+        }
+        
+        // 获取消息总数（排除系统消息）
+        const { Op } = require('sequelize');
+        const messageCount = await ChatMessage.count({
+          where: { 
+            sessionId: session.id,
+            senderType: { [Op.ne]: 'system' }
+          }
+        });
+        sessionData.messageCount = messageCount;
+        
+        // 清理不需要的字段
+        delete sessionData.messages;
+        
+        return sessionData;
+      }));
+
+      // 计算分页信息
+      const pagination = {
+        page: page,
+        limit: limit,
+        total: total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
+      };
+
+      return {
+        success: true,
+        sessions: processedSessions,
+        pagination,
+        message: `Retrieved ${processedSessions.length} history sessions`
+      };
+
+    } catch (error) {
+      console.error('Error getting history sessions:', error);
+      return {
+        success: false,
+        error: error.message,
+        message: 'Failed to get history sessions'
       };
     }
   }

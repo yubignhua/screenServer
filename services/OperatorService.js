@@ -522,35 +522,25 @@ class OperatorService {
       let operator = await Operator.findByPk(operatorId);
       if (!operator) {
         // 如果客服不存在，创建一个新的客服记录（用于测试）
+        // 由于Operator模型要求UUID格式的ID，我们让数据库自动生成UUID
         try {
+          const timestamp = Date.now();
+          const shortId = operatorId.slice(-8);
           operator = await Operator.create({
-            id: operatorId, // 使用请求的ID作为客服ID
-            name: `Test Operator ${operatorId.slice(-8)}`,
-            email: `${operatorId.slice(-8)}@test.com`,
+            name: `Test Operator ${shortId}`,
+            email: `operator${shortId}_${timestamp}@test.com`,
             status: status,
             lastActiveAt: new Date()
           });
           
-          console.log(`Created new operator: ${operator.id} for test`);
+          console.log(`Created new operator with UUID: ${operator.id} for requested ID: ${operatorId}`);
         } catch (createError) {
           console.error('Error creating operator:', createError);
-          // 如果使用指定ID创建失败，尝试自动生成ID
-          try {
-            operator = await Operator.create({
-              name: `Test Operator ${operatorId.slice(-8)}`,
-              email: `${operatorId.slice(-8)}@test.com`,
-              status: status,
-              lastActiveAt: new Date()
-            });
-            console.log(`Created new operator with auto-generated ID: ${operator.id} (requested: ${operatorId})`);
-          } catch (secondCreateError) {
-            console.error('Error creating operator with auto ID:', secondCreateError);
-            return {
-              success: false,
-              error: secondCreateError.message,
-              message: 'Failed to create operator'
-            };
-          }
+          return {
+            success: false,
+            error: createError.message,
+            message: 'Failed to create operator'
+          };
         }
       }
 

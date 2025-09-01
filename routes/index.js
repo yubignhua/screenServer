@@ -16,6 +16,8 @@ const notificationService = new NotificationService();
 
 // Store active chat connections
 let chatConnections = new Map(); // socketId -> { userId, sessionId, type: 'user'|'operator' }
+// Store operator ID mapping: clientOperatorId -> actualOperatorId
+let operatorIdMapping = new Map();
 //创建路由验证房间是否存在
 router.get("/api/room-exists/:roomId", (req, res) => {
   const { roomId } = req.params;
@@ -104,6 +106,26 @@ module.exports = {
 
       socket.on("operator-status-change", (data) => {
         operatorStatusChangeHandler(data, socket);
+      });
+
+      socket.on("operator-typing", (data) => {
+        operatorTypingHandler(data, socket);
+      });
+
+      socket.on("operator-stop-typing", (data) => {
+        operatorStopTypingHandler(data, socket);
+      });
+
+      socket.on("get-message-history", (data) => {
+        getMessageHistoryHandler(data, socket);
+      });
+
+      socket.on("operator-end-session", (data) => {
+        operatorEndSessionHandler(data, socket);
+      });
+
+      socket.on("operator-reconnect-session", (data) => {
+        operatorReconnectSessionHandler(data, socket);
       });
     });
 
@@ -301,11 +323,12 @@ module.exports = {
       }
     };
 
-    // Chat event handlers
-    const userJoinChatHandler = async (data, socket) => {
+    // 用户加入对话处理函数
+    const  userJoinChatHandler = async (data, socket) => {
       try {
         const { userId } = data;
         
+        // 验证用户ID是否存在
         if (!userId) {
           socket.emit("chat-error", { 
             error: "User ID is required",
@@ -316,9 +339,10 @@ module.exports = {
 
         console.log(`User ${userId} joining chat with socket ${socket.id}`);
 
-        // Create or get existing chat session
+        // 创建或获取现有的聊天会话
         const sessionResult = await ChatService.createChatSession(userId);
         
+        // 检查会话创建是否成功
         if (!sessionResult.success) {
           socket.emit("chat-error", { 
             error: sessionResult.message,
@@ -329,17 +353,17 @@ module.exports = {
 
         const { session, isNew } = sessionResult;
 
-        // Store connection info
+        // 存储连接信息到内存映射中
         chatConnections.set(socket.id, {
           userId,
           sessionId: session.id,
           type: 'user'
         });
 
-        // Join socket room for this session
+        // 将socket加入到对应的会话房间
         socket.join(`chat-session-${session.id}`);
 
-        // Send session info to user
+        // 向用户发送会话信息
         socket.emit("chat-session-created", {
           sessionId: session.id,
           userId,
@@ -348,7 +372,7 @@ module.exports = {
           timestamp: new Date().toISOString()
         });
 
-        // If new session, send notification to admin system
+        // 如果是新会话，发送通知到管理系统和在线客服
         if (isNew) {
           await notificationService.sendNewChatNotification({
             sessionId: session.id,
@@ -356,14 +380,30 @@ module.exports = {
             message: "New chat session started",
             timestamp: new Date()
           });
+          
+          // 直接向所有在线客服发送新聊天通知
+          for (const [socketId, connection] of chatConnections.entries()) {
+            if (connection.type === 'operator') {
+              io.to(socketId).emit("new-chat-notification", {
+                sessionId: session.id,
+                userId,
+                userName: '访客',
+                timestamp: new Date().toISOString(),
+                message: '用户发起了聊天请求'
+              });
+            }
+          }
+          
+          console.log(`New chat session ${session.id} notification sent to all online operators`);
         }
 
-        // Load and send message history
+        // 加载并发送消息历史记录
         const historyResult = await ChatService.getMessageHistory(session.id, {
           limit: 50,
           order: 'ASC'
         });
 
+        // 如果成功获取历史记录，发送给用户
         if (historyResult.success) {
           socket.emit("message-history", {
             sessionId: session.id,
@@ -375,6 +415,7 @@ module.exports = {
         console.log(`User ${userId} successfully joined chat session ${session.id}`);
 
       } catch (error) {
+        // 捕获并处理异常错误
         console.error("Error in userJoinChatHandler:", error);
         socket.emit("chat-error", { 
           error: "Internal server error",
@@ -406,7 +447,6 @@ module.exports = {
 
         const { userId, sessionId } = connection;
 
-        // Send message through ChatService
         const messageResult = await ChatService.sendMessage(
           sessionId,
           userId,
@@ -438,6 +478,22 @@ module.exports = {
 
         // Send to all sockets in the session room
         io.to(`chat-session-${sessionId}`).emit("message-received", messageData);
+
+        // 广播新消息通知给所有在线客服（除了当前会话中的客服）
+        for (const [socketId, connection] of chatConnections.entries()) {
+          if (connection.type === 'operator') {
+            // 如果会话还没有客服，或者客服不在当前会话中，发送通知
+            if (session.status === 'waiting' || connection.sessionId !== sessionId) {
+              io.to(socketId).emit("new-message-notification", {
+                sessionId,
+                userId,
+                content: content.trim(),
+                timestamp: message.createdAt.toISOString(),
+                messageType
+              });
+            }
+          }
+        }
 
         // Send notification to admin system
         await notificationService.sendMessageNotification({
@@ -471,11 +527,13 @@ module.exports = {
           return;
         }
 
-        console.log(`Operator ${operatorId} joining session ${sessionId} with socket ${socket.id}`);
+        // 获取实际的客服ID
+        const actualOperatorId = operatorIdMapping.get(operatorId) || operatorId;
+        console.log(`Operator ${operatorId} (actual: ${actualOperatorId}) joining session ${sessionId} with socket ${socket.id}`);
 
         // Assign operator to session
         console.log('Calling ChatService.assignOperatorToSession...');
-        const assignResult = await ChatService.assignOperatorToSession(sessionId, operatorId);
+        const assignResult = await ChatService.assignOperatorToSession(sessionId, actualOperatorId);
         console.log('assignOperatorToSession result:', assignResult);
 
         if (!assignResult.success) {
@@ -491,18 +549,20 @@ module.exports = {
 
         // Store connection info
         chatConnections.set(socket.id, {
-          operatorId,
+          operatorId: actualOperatorId, // 使用实际的客服ID
           sessionId,
           type: 'operator'
         });
 
         // Join socket room for this session
         socket.join(`chat-session-${sessionId}`);
+        
+        console.log(`客服 ${operatorId} (实际ID: ${actualOperatorId}) 已加入会话 ${sessionId}，Socket ID: ${socket.id}`);
 
         // Notify operator of successful join
         socket.emit("operator-session-joined", {
           sessionId,
-          operatorId,
+          operatorId: actualOperatorId,
           operatorName: operator.name,
           sessionStatus: session.status,
           timestamp: new Date().toISOString()
@@ -511,7 +571,7 @@ module.exports = {
         // Notify user that operator has joined
         socket.to(`chat-session-${sessionId}`).emit("operator-joined", {
           sessionId,
-          operatorId,
+          operatorId: actualOperatorId,
           operatorName: operator.name,
           timestamp: new Date().toISOString()
         });
@@ -543,37 +603,53 @@ module.exports = {
 
     const operatorSendMessageHandler = async (data, socket) => {
       try {
-        const { content, messageType = 'text' } = data;
-        const connection = chatConnections.get(socket.id);
-
-        if (!connection || connection.type !== 'operator') {
+        const { operatorId, sessionId, content, messageType = 'text' } = data;
+        
+        console.log('收到客服发送消息请求:', { operatorId, sessionId, content: content?.substring(0, 50) });
+        
+        // 验证必需参数
+        if (!operatorId || !sessionId || !content || content.trim().length === 0) {
           socket.emit("chat-error", { 
-            error: "Operator not connected to session",
-            code: "NOT_CONNECTED"
+            error: "Operator ID, Session ID and message content are required",
+            code: "MISSING_REQUIRED_FIELDS"
           });
           return;
         }
 
-        if (!content || content.trim().length === 0) {
-          socket.emit("chat-error", { 
-            error: "Message content is required",
-            code: "EMPTY_MESSAGE"
+        // 检查连接信息
+        let connection = chatConnections.get(socket.id);
+        
+        // 如果连接信息不存在或不匹配，尝试更新连接信息
+        if (!connection || connection.type !== 'operator' || connection.sessionId !== sessionId) {
+          console.log('更新客服连接信息:', { operatorId, sessionId });
+          
+          // 更新或创建连接信息
+          chatConnections.set(socket.id, {
+            operatorId,
+            sessionId,
+            type: 'operator'
           });
-          return;
+          
+          // 确保socket加入会话房间
+          socket.join(`chat-session-${sessionId}`);
+          
+          connection = chatConnections.get(socket.id);
         }
 
-        const { operatorId, sessionId } = connection;
+        // 获取实际的客服ID
+        const actualOperatorId = operatorIdMapping.get(operatorId) || operatorId;
 
         // Send message through ChatService
         const messageResult = await ChatService.sendMessage(
           sessionId,
-          operatorId,
+          actualOperatorId,
           'operator',
           content.trim(),
           messageType
         );
 
         if (!messageResult.success) {
+          console.error('发送消息失败:', messageResult.message);
           socket.emit("chat-error", { 
             error: messageResult.message,
             code: "MESSAGE_SEND_FAILED"
@@ -591,13 +667,13 @@ module.exports = {
           senderType: message.senderType,
           content: message.content,
           messageType: message.messageType,
-          timestamp: message.createdAt.toISOString()
+          createdAt: message.createdAt.toISOString()
         };
 
         // Send to all sockets in the session room
         io.to(`chat-session-${sessionId}`).emit("message-received", messageData);
 
-        console.log(`Message sent by operator ${operatorId} in session ${sessionId}`);
+        console.log(`Message sent by operator ${actualOperatorId} in session ${sessionId}`);
 
       } catch (error) {
         console.error("Error in operatorSendMessageHandler:", error);
@@ -649,6 +725,33 @@ module.exports = {
               sessionId: null
             });
           }
+
+          // 当客服上线时，推送现有的等待会话
+          try {
+            const waitingSessions = await ChatService.getUserSessions(null, {
+              status: 'waiting',
+              limit: 10,
+              offset: 0,
+              includeMessages: false
+            });
+
+            if (waitingSessions.success && waitingSessions.sessions.length > 0) {
+              console.log(`Found ${waitingSessions.sessions.length} waiting sessions for operator ${realOperatorId}`);
+              
+              // 为每个等待的会话发送通知
+              waitingSessions.sessions.forEach(session => {
+                socket.emit("new-chat-notification", {
+                  sessionId: session.id,
+                  userId: session.userId,
+                  userName: '访客',
+                  timestamp: session.createdAt.toISOString(),
+                  lastMessage: '用户等待客服接入'
+                });
+              });
+            }
+          } catch (error) {
+            console.error('Error fetching waiting sessions:', error);
+          }
         }
 
         // Notify operator of status change
@@ -672,6 +775,190 @@ module.exports = {
         console.error("Error in operatorStatusChangeHandler:", error);
         socket.emit("chat-error", { 
           error: "Failed to update status",
+          code: "INTERNAL_ERROR"
+        });
+      }
+    };
+
+    // 客服输入指示器处理
+    const operatorTypingHandler = (data, socket) => {
+      try {
+        const { sessionId, operatorId } = data;
+        
+        if (!sessionId || !operatorId) {
+          return;
+        }
+
+        // 广播输入指示器给会话中的其他参与者
+        socket.to(`chat-session-${sessionId}`).emit("typing-indicator", {
+          sessionId,
+          senderType: 'operator',
+          operatorId,
+          timestamp: new Date().toISOString()
+        });
+
+      } catch (error) {
+        console.error("Error in operatorTypingHandler:", error);
+      }
+    };
+
+    // 客服停止输入处理
+    const operatorStopTypingHandler = (data, socket) => {
+      try {
+        const { sessionId, operatorId } = data;
+        
+        if (!sessionId || !operatorId) {
+          return;
+        }
+
+        // 广播停止输入指示器
+        socket.to(`chat-session-${sessionId}`).emit("stop-typing-indicator", {
+          sessionId,
+          senderType: 'operator',
+          operatorId,
+          timestamp: new Date().toISOString()
+        });
+
+      } catch (error) {
+        console.error("Error in operatorStopTypingHandler:", error);
+      }
+    };
+
+    // 获取消息历史处理
+    const getMessageHistoryHandler = async (data, socket) => {
+      try {
+        const { sessionId, limit = 50, offset = 0 } = data;
+        
+        if (!sessionId) {
+          socket.emit("chat-error", { 
+            error: "Session ID is required",
+            code: "MISSING_SESSION_ID"
+          });
+          return;
+        }
+
+        // 获取消息历史
+        const historyResult = await ChatService.getMessageHistory(sessionId, {
+          limit,
+          offset,
+          order: 'ASC'
+        });
+
+        if (!historyResult.success) {
+          socket.emit("chat-error", { 
+            error: historyResult.message,
+            code: "HISTORY_LOAD_FAILED"
+          });
+          return;
+        }
+
+        // 发送历史消息
+        socket.emit("message-history", {
+          sessionId,
+          messages: historyResult.messages,
+          pagination: historyResult.pagination
+        });
+
+      } catch (error) {
+        console.error("Error in getMessageHistoryHandler:", error);
+        socket.emit("chat-error", { 
+          error: "Failed to load message history",
+          code: "INTERNAL_ERROR"
+        });
+      }
+    };
+
+    // 客服结束会话处理
+    const operatorEndSessionHandler = async (data, socket) => {
+      try {
+        const { sessionId, operatorId } = data;
+        
+        if (!sessionId || !operatorId) {
+          socket.emit("chat-error", { 
+            error: "Session ID and Operator ID are required",
+            code: "MISSING_REQUIRED_FIELDS"
+          });
+          return;
+        }
+
+        // 结束会话
+        const endResult = await ChatService.endChatSession(sessionId, operatorId);
+
+        if (!endResult.success) {
+          socket.emit("chat-error", { 
+            error: endResult.message,
+            code: "END_SESSION_FAILED"
+          });
+          return;
+        }
+
+        // 通知会话中的所有参与者
+        io.to(`chat-session-${sessionId}`).emit("session-ended", {
+          sessionId,
+          operatorId,
+          timestamp: new Date().toISOString(),
+          reason: 'operator_ended'
+        });
+
+        // 从连接映射中移除
+        const connection = chatConnections.get(socket.id);
+        if (connection) {
+          connection.sessionId = null;
+        }
+
+        console.log(`Operator ${operatorId} ended session ${sessionId}`);
+
+      } catch (error) {
+        console.error("Error in operatorEndSessionHandler:", error);
+        socket.emit("chat-error", { 
+          error: "Failed to end session",
+          code: "INTERNAL_ERROR"
+        });
+      }
+    };
+
+    // 客服重连会话处理
+    const operatorReconnectSessionHandler = async (data, socket) => {
+      try {
+        const { operatorId, sessionId } = data;
+        
+        if (!operatorId || !sessionId) {
+          socket.emit("chat-error", { 
+            error: "Operator ID and Session ID are required",
+            code: "MISSING_REQUIRED_FIELDS"
+          });
+          return;
+        }
+
+        console.log(`客服 ${operatorId} 重连到会话 ${sessionId}`);
+
+        // 获取实际的客服ID
+        const actualOperatorId = operatorIdMapping.get(operatorId) || operatorId;
+
+        // 更新连接信息
+        chatConnections.set(socket.id, {
+          operatorId: actualOperatorId,
+          sessionId,
+          type: 'operator'
+        });
+
+        // 加入会话房间
+        socket.join(`chat-session-${sessionId}`);
+
+        // 通知客服重连成功
+        socket.emit("operator-session-joined", {
+          sessionId,
+          operatorId: actualOperatorId,
+          timestamp: new Date().toISOString(),
+          reconnected: true
+        });
+
+        console.log(`客服 ${operatorId} (实际ID: ${actualOperatorId}) 重连会话 ${sessionId} 成功`);
+
+      } catch (error) {
+        console.error("Error in operatorReconnectSessionHandler:", error);
+        socket.emit("chat-error", { 
+          error: "Failed to reconnect to session",
           code: "INTERNAL_ERROR"
         });
       }

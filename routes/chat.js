@@ -11,6 +11,87 @@ const {
 } = require('../middleware/validation');
 
 /**
+ * 获取所有历史会话列表（支持分页和搜索）
+ * GET /api/chat/sessions/history
+ */
+router.get('/sessions/history', validatePagination, async (req, res) => {
+  try {
+    const { 
+      page = '1',
+      limit = '100',
+      keyword,
+      status,
+      startDate,
+      endDate,
+      includeMessages = 'false'
+    } = req.query;
+
+    const options = {
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      keyword: keyword || null,
+      status: status || null,
+      startDate: startDate || null,
+      endDate: endDate || null,
+      includeMessages: includeMessages === 'true'
+    };
+
+    // 验证分页参数
+    if (options.page < 1) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_PAGE',
+          message: 'Page must be greater than 0'
+        }
+      });
+    }
+
+    if (options.limit < 1 || options.limit > 200) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_LIMIT',
+          message: 'Limit must be between 1 and 200'
+        }
+      });
+    }
+
+    const result = await ChatService.getAllHistorySessions(options);
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'HISTORY_SESSIONS_RETRIEVAL_FAILED',
+          message: result.message,
+          details: result.error
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        sessions: result.sessions,
+        pagination: result.pagination
+      },
+      message: result.message
+    });
+
+  } catch (error) {
+    console.error('Error in GET /sessions/history:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Internal server error'
+      }
+    });
+  }
+});
+
+/**
  * 获取用户的聊天会话列表
  * GET /api/chat/sessions/:userId
  */

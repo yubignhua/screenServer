@@ -36,13 +36,13 @@ module.exports = (sequelize) => {
       // Note: Foreign key reference will be added when Operator model is created
     },
     status: {
-      type: DataTypes.ENUM('waiting', 'active', 'closed'),
+      type: DataTypes.ENUM('waiting', 'active', 'completed', 'closed', 'timeout', 'cancelled'),
       defaultValue: 'waiting',
       allowNull: false,
       validate: {
         isIn: {
-          args: [['waiting', 'active', 'closed']],
-          msg: 'Status must be one of: waiting, active, closed'
+          args: [['waiting', 'active', 'completed', 'closed', 'timeout', 'cancelled']],
+          msg: 'Status must be one of: waiting, active, completed, closed, timeout, cancelled'
         }
       }
     },
