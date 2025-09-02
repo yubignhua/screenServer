@@ -7,15 +7,15 @@ var cors = require('cors');
 var {indexRouter} = require('./routes/index');
 var usersRouter = require('./routes/users');
 
-// Import chat and operator routes
+// 导入路由
 var chatRouter = require('./routes/chat');
 var operatorRouter = require('./routes/operator');
 
-// Import database and Redis configuration
+// 导入 database and Redis configuration
 const { testDatabaseConnection, initializeDatabase } = require('./models');
 const { createRedisClient, testRedisConnection } = require('./config/redis');
 
-// Import middleware
+// 导入中间件
 const errorHandler = require('./middleware/errorHandler');
 const { responseFormatter, requestLogger, corsConfig, securityHeaders } = require('./middleware/responseFormatter');
 
@@ -63,12 +63,18 @@ app.use(corsConfig);
 app.use(requestLogger);
 app.use(responseFormatter);
 
-// Standard Express middleware
+// 标准的express 中间件
+// CORS (Cross-Origin Resource Sharing) - 允许跨域请求
 app.use(cors());
+// Morgan logger - 记录HTTP请求日志，'dev'模式提供彩色输出
 app.use(logger('dev'));
+// JSON解析器 - 解析请求体中的JSON数据，限制大小为10MB
 app.use(express.json({ limit: '10mb' }));
+// URL编码解析器 - 解析表单数据，extended:false使用querystring库，限制大小为10MB
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+// Cookie解析器 - 解析请求中的Cookie数据
 app.use(cookieParser());
+// 静态文件服务 - 提供public目录下的静态文件访问
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 配置 router 
@@ -76,12 +82,10 @@ app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/operators', operatorRouter);
-// Add simple notification endpoint for testing
 app.post('/api/notifications', (req, res) => { 
   console.log('Received notification:', req.body);
   res.json({ success: true, message: 'Notification received' });
 });
-// Serve test files for development
 app.use('/test', express.static(path.join(__dirname, '../chatBox')));
 
 // catch 404 and forward to error handler

@@ -358,6 +358,66 @@ router.get('/pending-sessions', async (req, res) => {
 });
 
 /**
+ * 获取活跃会话列表（等待中和进行中的会话）
+ * GET /api/operators/active-sessions
+ */
+router.get('/active-sessions', async (req, res) => {
+  try {
+    const { limit = '50', offset = '0' } = req.query;
+
+    // 获取等待和活跃状态的会话
+    const { Op } = require('sequelize');
+    const { ChatSession } = require('../models');
+
+    const sessions = await ChatSession.findAll({
+      where: {
+        status: {
+          [Op.in]: ['waiting', 'active']
+        }
+      },
+      order: [
+        ['status', 'ASC'], // waiting 优先
+        ['updatedAt', 'DESC']
+      ],
+      limit: parseInt(limit, 10),
+      offset: parseInt(offset, 10)
+    });
+
+    const totalCount = await ChatSession.count({
+      where: {
+        status: {
+          [Op.in]: ['waiting', 'active']
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        sessions: sessions,
+        pagination: {
+          total: totalCount,
+          page: Math.floor(parseInt(offset, 10) / parseInt(limit, 10)) + 1,
+          limit: parseInt(limit, 10),
+          offset: parseInt(offset, 10)
+        }
+      },
+      message: 'Active sessions retrieved successfully'
+    });
+
+  } catch (error) {
+    console.error('Error in GET /operators/active-sessions:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Internal server error'
+      }
+    });
+  }
+});
+
+/**
  * 获取客服统计信息
  * GET /api/operators/stats
  */

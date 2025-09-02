@@ -390,7 +390,7 @@ class ChatService {
         sessionId,
         'system',
         'system',
-        `Operator ${operator.name} has joined the chat`,
+        `Operator ${operator.name} 加入了会话`,
         'system'
       );
 

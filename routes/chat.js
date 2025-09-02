@@ -11,6 +11,68 @@ const {
 } = require('../middleware/validation');
 
 /**
+ * 获取活跃会话列表（等待中和进行中的会话）
+ * GET /api/chat/sessions/active
+ */
+router.get('/sessions/active', validatePagination, async (req, res) => {
+  try {
+    const { 
+      limit = '50',
+      offset = '0'
+    } = req.query;
+
+    const { Op, where } = require('sequelize');
+    const { ChatSession } = require('../models');
+
+    const sessions = await ChatSession.findAll({
+      where: {
+        status: {
+          [Op.in]: ['waiting', 'active']
+        }
+      },
+      order: [
+        ['status', 'ASC'], // waiting 优先
+        ['updatedAt', 'DESC']
+      ],
+      limit: parseInt(limit, 10),
+      offset: parseInt(offset, 10)
+    });
+
+    const totalCount = await ChatSession.count({
+      where: {
+        status: {
+          [Op.in]: ['waiting', 'active']
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        sessions: sessions,
+        pagination: {
+          total: totalCount,
+          page: Math.floor(parseInt(offset, 10) / parseInt(limit, 10)) + 1,
+          limit: parseInt(limit, 10),
+          offset: parseInt(offset, 10)
+        }
+      },
+      message: 'Active sessions retrieved successfully'
+    });
+
+  } catch (error) {
+    console.error('Error in GET /sessions/active:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Internal server error'
+      }
+    });
+  }
+});
+
+/**
  * 获取所有历史会话列表（支持分页和搜索）
  * GET /api/chat/sessions/history
  */

@@ -6,15 +6,14 @@ var io;
 let connectedUsers = [];
 let rooms = [];
 
-// Import chat services
 const ChatService = require('../services/ChatService');
 const NotificationService = require('../services/NotificationService');
 const OperatorService = require('../services/OperatorService');
 
-// Initialize notification service
+// 初始化 notification 服务
 const notificationService = new NotificationService();
 
-// Store active chat connections
+// 存储活跃的聊天连接
 let chatConnections = new Map(); // socketId -> { userId, sessionId, type: 'user'|'operator' }
 // Store operator ID mapping: clientOperatorId -> actualOperatorId
 let operatorIdMapping = new Map();
@@ -87,7 +86,7 @@ module.exports = {
         directMessageHandler(data, socket);
       });
 
-      // Chat event handlers
+      //  聊天事件处理器
       socket.on("user-join-chat", (data) => {
         userJoinChatHandler(data, socket);
       });
@@ -479,19 +478,18 @@ module.exports = {
         // Send to all sockets in the session room
         io.to(`chat-session-${sessionId}`).emit("message-received", messageData);
 
-        // 广播新消息通知给所有在线客服（除了当前会话中的客服）
+        // 广播新消息通知给所有在线客服
         for (const [socketId, connection] of chatConnections.entries()) {
           if (connection.type === 'operator') {
-            // 如果会话还没有客服，或者客服不在当前会话中，发送通知
-            if (session.status === 'waiting' || connection.sessionId !== sessionId) {
-              io.to(socketId).emit("new-message-notification", {
-                sessionId,
-                userId,
-                content: content.trim(),
-                timestamp: message.createdAt.toISOString(),
-                messageType
-              });
-            }
+            io.to(socketId).emit("new-message-notification", {
+              sessionId,
+              userId,
+              userName: session.userName || '访客',
+              content: content.trim(),
+              timestamp: message.createdAt.toISOString(),
+              messageType
+            });
+            console.log(`消息通知已发送给客服 ${connection.operatorId || socketId}`);
           }
         }
 
