@@ -1,135 +1,169 @@
-# 基于 Express.js + Socket.IO 的 Node.js 服务器应用文档
+# Chat Server
 
-## 项目概述
-这是一个基于 **Express.js 框架** 构建的 Node.js 服务器应用，核心集成了 **Socket.IO 实时通信功能**，可实现客户端与服务器的双向实时数据交互。项目采用传统的 **MVC 架构模式** 进行代码组织，视图层使用 Jade 模板引擎（现更名为 Pug）完成页面渲染，整体架构清晰，便于维护与扩展。
+This is a robust and scalable chat server built with Node.js and Express. It provides real-time communication capabilities between users and customer service operators. The application includes features like chat session management, message history, operator status tracking, and intelligent operator assignment.
 
+## Features
 
-## 技术栈
-### 核心框架
-| 技术工具          | 版本       | 核心作用                     |
-|-------------------|------------|------------------------------|
-| Express.js        | 4.16.1     | Web 应用核心框架，处理路由、中间件等 |
-| Node.js           | -          | JavaScript 运行时环境，支撑服务端运行 |
-| Socket.IO         | 4.7.5      | 实现实时双向通信（基于 WebSocket 等技术） |
+*   **Real-time Chat:** WebSocket-based communication for instant message delivery.
+*   **Chat Session Management:** Create, assign, and close chat sessions.
+*   **Message History:** Retrieve message history for any chat session.
+*   **Operator Management:** Track operator status (online, offline, busy) and assign them to sessions.
+*   **Intelligent Assignment:** Automatically assign operators to chat sessions based on different strategies (e.g., round-robin, least busy).
+*   **RESTful API:** A comprehensive set of API endpoints to manage chats, operators, and sessions.
+*   **Scalability:** Utilizes Redis for caching and to manage distributed state.
 
-### 中间件与工具
-- **Morgan**：HTTP 请求日志记录工具，可输出请求方法、路径、状态码等信息，便于开发调试与问题排查。
-- **CORS**：跨域资源共享中间件，解决前端与服务端跨域请求的限制问题。
-- **Cookie-Parser**：解析客户端发送的 Cookie 数据，支持服务端对 Cookie 进行读写操作。
-- **UUID**：生成唯一标识符的工具，可用于用户会话、数据唯一标识等场景。
+## Tech Stack
 
-### 视图层
-- **Jade 1.11.0**：轻量级模板引擎（现已更名为 Pug），支持 HTML 代码的简洁化编写与动态渲染。
-- **CSS**：用于页面样式定义，优化前端页面的视觉呈现效果。
+*   **Backend:** Node.js, Express.js
+*   **Database:** MySQL with Sequelize ORM
+*   **Real-time Communication:** Socket.IO
+*   **Caching:** Redis
+*   **Testing:** Jest, Supertest
+*   **Validation:** express-validator
 
+## Prerequisites
 
-## 项目结构分析
-### 1. 入口文件（www）
-- **核心功能**：服务器启动脚本，是整个应用的入口点。
-- **关键配置**：
-  - 默认端口：`3001`（可通过环境变量 `PORT` 自定义覆盖，适配不同部署环境）。
-  - Socket.IO 初始化：在此文件中完成 Socket.IO 与 Express 服务器的集成，开启实时通信功能。
-  - 错误处理：包含完整的端口占用、服务启动失败等错误捕获逻辑，以及端口号规范化处理（确保端口为有效数字）。
+*   Node.js (v14 or later)
+*   MySQL
+*   Redis
 
-### 2. 应用主文件（app.js）
-- **核心功能**：Express 应用的核心配置文件，定义了应用的中间件、路由、视图等核心模块。
-- **中间件注册顺序**（按执行优先级排序）：
-  1. CORS 支持：优先配置跨域规则，确保后续请求无跨域限制。
-  2. Morgan 日志记录：仅在开发模式下启用，输出请求日志。
-  3. JSON 和 URL 编码解析：解析客户端发送的 JSON 格式数据与表单数据（`application/json`、`application/x-www-form-urlencoded`）。
-  4. Cookie 解析：通过 `cookie-parser` 中间件解析 Cookie 数据。
-  5. 静态文件服务：配置静态资源目录（如 `public`），提供 CSS、JS 等静态文件的访问支持。
-- **路由配置**：
-  - 根路径（`/`）：由 `./routes/index` 路由模块处理（首页相关请求）。
-  - 用户路径（`/users`）：由 `./routes/users` 路由模块处理（用户注册、登录等相关请求）。
-- **错误处理**：
-  - 404 错误处理：捕获未匹配的路由请求，返回 404 页面。
-  - 全局错误处理中间件：捕获应用运行中的所有异常，统一返回错误响应。
+## Getting Started
 
-### 3. 视图系统
-- **layout.jade**：基础布局模板，定义了页面的公共结构（如 HTML 头部、导航栏、页脚），其他页面模板可继承此布局，减少代码冗余。
-- **index.jade**：首页模板，对应根路径（`/`）的视图渲染，展示应用的核心功能或首页内容。
-- **error.jade**：错误页面模板，用于 404、500 等错误场景的视图展示。
-- **style.css**：基础样式文件，定义了所有页面的公共样式（如字体、颜色、布局），确保页面风格统一。
+### Installation
 
+1.  Clone the repository:
+    ```bash
+    git clone <repository-url>
+    cd screenServer
+    ```
 
-## 技术特性
-### 1. 实时通信（核心特性）
-项目通过 Socket.IO 实现了成熟的实时通信能力，支持：
-- **WebSocket 连接**：优先使用 WebSocket 协议建立长连接，减少请求开销，提升通信效率。
-- **实时数据推送**：支持服务器向客户端主动推送数据（如消息通知、实时更新），也支持客户端与服务器的双向数据交互。
-- **跨浏览器兼容性**：自动适配不同浏览器的通信协议（如 WebSocket 不支持时，降级为 HTTP 长轮询），确保多端兼容性。
+2.  Install the dependencies:
+    ```bash
+    npm install
+    ```
 
-### 2. 完善的错误处理
-- **404 页面自动捕获**：所有未匹配的路由请求会被统一拦截，返回自定义 404 页面，提升用户体验。
-- **环境差异化错误展示**：
-  - 开发环境：显示详细的错误堆栈信息，便于开发人员定位问题。
-  - 生产环境：隐藏敏感错误详情，仅返回友好的错误提示，保障应用安全性。
+### Configuration
 
-### 3. 开发友好特性
-- **Morgan 日志记录**：实时输出 HTTP 请求的详细信息（方法、路径、状态码、响应时间等），便于开发调试。
-- **Debug 模块支持**：集成 Debug 工具，可通过环境变量开启指定模块的调试日志，精准定位问题。
-- **热重载支持**：配置 `nodemon` 后，修改代码无需手动重启服务器，提升开发效率（需额外配置）。
+1.  Create a `.env` file in the root of the project by copying the example file:
+    ```bash
+    cp .env.example .env
+    ```
 
+2.  Update the `.env` file with your database and Redis credentials:
+    ```env
+    DB_HOST=your_database_host
+    DB_PORT=your_database_port
+    DB_NAME=your_database_name
+    DB_USER=your_database_user
+    DB_PASSWORD=your_database_password
 
-## 启动指南
-### 1. 安装依赖
-确保本地已安装 Node.js 环境（建议 v14+），执行以下命令安装项目依赖：
-```bash
-npm install
+    REDIS_HOST=your_redis_host
+    REDIS_PORT=your_redis_port
+    REDIS_PASSWORD=your_redis_password
+    ```
+
+## Database Setup
+
+You can initialize the database using the following npm scripts:
+
+*   **Initialize the database (creates tables):**
+    ```bash
+    npm run db:init
+    ```
+
+*   **Force recreate all tables:**
+    ```bash
+    npm run db:init:force
+    ```
+
+*   **Seed the database with sample data:**
+    ```bash
+    npm run db:seed
+    ```
+
+*   **Reset the database and seed it with sample data:**
+    ```bash
+    npm run db:reset
+    ```
+
+## Running the Application
+
+*   **Start the server:**
+    ```bash
+    npm start
+    ```
+
+*   **Start the server with pm2:**
+    ```bash
+    npm run pm2-start
+    ```
+
+The server will be running on `http://localhost:3000`.
+
+## Running Tests
+
+*   **Run all tests:**
+    ```bash
+    npm test
+    ```
+
+*   **Run tests in watch mode:**
+    ```bash
+    npm run test:watch
+    ```
+
+## API Endpoints
+
+Here is a summary of the main API endpoints:
+
+### Chat API (`/api/chat`)
+
+*   `GET /sessions/active`: Get active chat sessions.
+*   `GET /sessions/history`: Get all historical chat sessions.
+*   `POST /sessions`: Create a new chat session.
+*   `PUT /sessions/:sessionId/close`: Close a chat session.
+*   `GET /messages/:sessionId`: Get messages for a specific session.
+
+### Operator API (`/api/operators`)
+
+*   `GET /`: Get a list of all operators.
+*   `GET /online`: Get a list of online operators.
+*   `GET /available`: Get a list of available operators.
+*   `PUT /:operatorId/status`: Update the status of an operator.
+*   `POST /assign`: Intelligently assign an operator to a session.
+
+## Project Structure
+
+```
+screenServer/
+├───app.js                      # Express application setup
+├───bin/www                     # Entry point for the application
+├───config/                     # Configuration files (database, redis)
+├───docs/                       # Project documentation
+├───middleware/                 # Custom Express middleware
+├───models/                     # Sequelize models
+├───node_modules/               # Node.js modules
+├───public/                     # Publicly served assets (chat UI)
+├───routes/                     # API routes
+├───scripts/                    # Scripts for database initialization
+├───services/                   # Business logic services
+├───tests/                      # Jest tests
+├───.env.example                # Example environment file
+├───package.json                # Project dependencies and scripts
+└───README.md                   # This file
 ```
 
-### 2. 启动服务器
-依赖安装完成后，执行以下命令启动服务器：
-```bash
-npm start
-```
-- 服务器默认启动地址：`http://localhost:3001`
-- 自定义端口：可通过环境变量 `PORT` 覆盖默认端口，例如：
-  ```bash
-  # Windows（命令行）
-  set PORT=3002 && npm start
+## Real-time Communication
 
-  # macOS/Linux（终端）
-  PORT=3002 npm start
-  ```
+The application uses Socket.IO for real-time communication. The server listens for WebSocket connections to enable instant messaging between users and operators.
 
+## Environment Variables
 
-## 扩展建议
-### 1. 补充缺失的路由文件
-项目当前引用了 `./routes/index` 和 `./routes/users` 路由模块，但未提供具体实现，建议优先创建以下文件：
-- **routes/index.js**：处理首页（`/`）的 GET 请求，返回首页视图；同时可在此完成 Socket.IO 的事件监听与逻辑处理（如实时消息接收、数据广播）。
-- **routes/users.js**：处理用户相关接口（如 `/users/register` 注册、`/users/login` 登录），集成用户认证逻辑（如 JWT）。
-
-### 2. 开发环境优化
-为提升开发效率，建议添加以下工具：
-- **nodemon**：监听代码文件变化，自动重启服务器，避免手动重启的重复操作。
-  ```bash
-  # 安装（开发依赖）
-  npm install nodemon --save-dev
-  # 修改 package.json 的启动脚本
-  "scripts": {
-    "start": "node ./bin/www",
-    "dev": "nodemon ./bin/www"
-  }
-  # 启动开发环境
-  npm run dev
-  ```
-- **dotenv**：管理环境变量（如数据库地址、密钥、端口号），将环境变量配置在 `.env` 文件中，避免硬编码，提升代码安全性与可移植性。
-- **helmet**：安全中间件，自动设置 HTTP 响应头（如 `X-XSS-Protection`、`X-Frame-Options`），防御 XSS、点击劫持等常见安全攻击。
-
-### 3. 技术栈现代化升级
-- **Jade → Pug**：Jade 已正式更名为 Pug，语法完全兼容，建议将依赖升级为 Pug，避免使用过时工具带来的维护风险。
-  ```bash
-  npm uninstall jade && npm install pug --save
-  ```
-- **使用 ES6+ 语法**：当前项目可能基于 ES5 语法开发，建议逐步迁移至 ES6+ 特性（如箭头函数、解构赋值、`async/await`），简化代码逻辑，提升可读性。
-- **添加 TypeScript 支持**：引入 TypeScript 进行类型检查，减少运行时错误，提升代码可维护性（尤其适合团队协作场景）。
-
-
-## 适用场景
-该项目提供了成熟的实时 Web 应用基础架构，特别适合以下场景：
-- 实时聊天应用（如客服聊天、社交聊天）。
-- 实时数据监控系统（如设备状态监控、数据仪表盘）。
-- 协作类应用（如实时文档编辑、多人在线游戏）。
-- 需要实时更新的内容平台（如实时新闻、直播评论）。
+*   `DB_HOST`: The hostname of the database server.
+*   `DB_PORT`: The port of the database server.
+*   `DB_NAME`: The name of the database.
+*   `DB_USER`: The username for the database.
+*   `DB_PASSWORD`: The password for the database.
+*   `REDIS_HOST`: The hostname of the Redis server.
+*   `REDIS_PORT`: The port of the Redis server.
+*   `REDIS_PASSWORD`: The password for the Redis server.
