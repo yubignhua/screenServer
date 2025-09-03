@@ -97,7 +97,7 @@
             .toggle-instructions {
                 display: none;
             }
-        }</style><script defer="defer" src="/chatbox/operator.bundle.js"></script></head><body><div class="test-header"><h1>客服工作台测试环境</h1><div class="test-info">Vue2 + Element UI + Socket.IO 客服系统</div></div><button class="toggle-instructions" onclick="toggleInstructions()">使用说明</button><div class="instructions" id="instructions"><h3>客服工作台使用说明</h3><ol><li><strong>连接服务:</strong> 点击"连接服务"按钮连接到Socket服务器</li><li><strong>状态管理:</strong> 点击状态标签可在"在线"和"忙碌"之间切换</li><li><strong>接入会话:</strong> 左侧会显示待处理的用户会话，点击"接入"按钮</li><li><strong>消息回复:</strong> 在右侧聊天窗口输入消息并发送</li><li><strong>快速回复:</strong> 使用预设的快速回复模板提高效率</li><li><strong>会话管理:</strong> 可以查看活跃会话列表并切换</li><li><strong>结束会话:</strong> 点击"结束会话"按钮关闭当前对话</li></ol><div class="note"><strong>测试提示:</strong><br>• 可以同时打开用户端页面进行完整测试<br>• 支持多会话并发处理<br>• 实时消息推送和状态同步<br>• 响应式设计，支持移动端使用</div></div><div class="workspace-container"><div id="app"></div></div><script>function toggleInstructions() {
+        }</style><script defer="defer" src="/chatbox/operator.bundle.js"></script></head><body><div class="test-header"><h1>客服工作台测试环境</h1><div class="test-info"></div></div><div class="workspace-container"><div id="app"></div></div><script>function toggleInstructions() {
             const instructions = document.getElementById('instructions');
             instructions.style.display = instructions.style.display === 'none' ? 'block' : 'none';
         }
