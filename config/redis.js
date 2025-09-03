@@ -3,10 +3,10 @@ require('dotenv').config();
 
 // Redis configuration
 const redisConfig = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: process.env.REDIS_PORT || 6379,
-  password: process.env.REDIS_PASSWORD || undefined,
-  db: process.env.REDIS_DB || 0,
+  host: process.env.REDIS_HOST,
+  port: process.env.REDIS_PORT,
+  password: process.env.REDIS_PASSWORD,
+  db: process.env.REDIS_DB,
   retryDelayOnFailover: 100,
   enableReadyCheck: false,
   maxRetriesPerRequest: null,

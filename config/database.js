@@ -4,11 +4,11 @@ require('dotenv').config();
 // Database configuration
 const config = {
   development: {
-    username: process.env.DB_USER || 'reat_express_yubh',
-    password: process.env.DB_PASSWORD || 'Yu1988001@123',
-    database: process.env.DB_NAME || 'familyDB',
-    host: process.env.DB_HOST || '149.88.88.205',
-    port: process.env.DB_PORT || 3306,
+    username: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
     dialect: 'mysql',
     logging: console.log,
     dialectOptions: {
@@ -23,11 +23,11 @@ const config = {
     }
   },
   test: {
-    username: process.env.DB_USER || 'reat_express_yubh',
-    password: process.env.DB_PASSWORD || 'Yu1988001@123',
-    database: process.env.DB_NAME_TEST || 'familyDB',
-    host: process.env.DB_HOST || '149.88.88.205',
-    port: process.env.DB_PORT || 3306,
+    username: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME_TEST,
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
     dialect: 'mysql',
     logging: false,
     dialectOptions: {
@@ -42,11 +42,11 @@ const config = {
     }
   },
   production: {
-    username: process.env.DB_USER || 'reat_express_yubh',
-    password: process.env.DB_PASSWORD || 'Yu1988001@123',
-    database: process.env.DB_NAME || 'familyDB',
-    host: process.env.DB_HOST || '149.88.88.205',
-    port: process.env.DB_PORT || 3306,
+    username: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
     dialect: 'mysql',
     logging: false,
     dialectOptions: {
