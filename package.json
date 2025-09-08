@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "start": "node ./bin/www",
-    "pm2-start": "pm2 ./bin/www --name serverscreen",
+    "pm2-start": "pm2 start ./bin/www --name serverscreen",
     "test-connections": "node test-connections.js",
     "test": "jest",
     "test:watch": "jest --watch",
