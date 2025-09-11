@@ -3,6 +3,9 @@
 # dependencies
 /node_modules
 
+CLAUDE.md
+GEMINI.md
+CLAUDE.md
 # environment variables
 .env
 .env.local
