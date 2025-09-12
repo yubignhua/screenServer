@@ -64,8 +64,7 @@ app.use(requestLogger);
 app.use(responseFormatter);
 
 // 标准的express 中间件
-// CORS (Cross-Origin Resource Sharing) - 允许跨域请求
-app.use(cors());
+// CORS (Cross-Origin Resource Sharing) - 允许跨域请求 (handled by corsConfig middleware above)
 // Morgan logger - 记录HTTP请求日志，'dev'模式提供彩色输出
 app.use(logger('dev'));
 // JSON解析器 - 解析请求体中的JSON数据，限制大小为10MB
