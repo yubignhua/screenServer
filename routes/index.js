@@ -46,6 +46,7 @@ router.get("/api/room-exists/:roomId", (req, res) => {
   }
 });
 
+
 // module.exports = router;
 module.exports = {
   indexRouter: router,
@@ -327,7 +328,7 @@ module.exports = {
     // 用户加入对话处理函数
     const  userJoinChatHandler = async (data, socket) => {
       try {
-        const { userId } = data;
+        const { userId, userName } = data;
         
         // 验证用户ID是否存在
         if (!userId) {
@@ -341,7 +342,7 @@ module.exports = {
         console.log(`User ${userId} joining chat with socket ${socket.id}`);
 
         // 创建或获取现有的聊天会话
-        const sessionResult = await ChatService.createChatSession(userId);
+        const sessionResult = await ChatService.createChatSession(userId, { userName });
         
         // 检查会话创建是否成功
         if (!sessionResult.success) {
@@ -388,7 +389,7 @@ module.exports = {
               io.to(socketId).emit("new-chat-notification", {
                 sessionId: session.id,
                 userId,
-                userName: '访客',
+                userName: userName || '访客',
                 timestamp: new Date().toISOString(),
                 message: '用户发起了聊天请求'
               });
@@ -743,7 +744,7 @@ module.exports = {
                 socket.emit("new-chat-notification", {
                   sessionId: session.id,
                   userId: session.userId,
-                  userName: '访客',
+                  userName: session.userName || '访客',
                   timestamp: session.createdAt.toISOString(),
                   lastMessage: '用户等待客服接入'
                 });

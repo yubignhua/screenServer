@@ -5,7 +5,7 @@ class ChatService {
   /**
    * 创建新的聊天会话
    * @param {string} userId - 用户ID
-   * @param {Object} options - 可选参数
+   * @param {Object} options - 可选参数 (包含 userName)
    * @returns {Promise<Object>} 创建的会话对象
    */
   async createChatSession(userId, options = {}) {
@@ -159,7 +159,15 @@ class ChatService {
       return {
         success: true,
         messages,
-        session,
+        session: {
+          id: session.id,
+          userId: session.userId,
+          userName: session.userName,
+          operatorId: session.operatorId,
+          status: session.status,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt
+        },
         pagination: {
           total: totalCount,
           limit,
@@ -511,11 +519,12 @@ class ChatService {
       }
       // 不再限制状态，而是通过消息数量来判断是否为历史会话
 
-      // 关键词搜索（用户名或会话ID）
+      // 关键词搜索（用户名、用户ID或会话ID）
       if (keyword) {
         const { Op } = require('sequelize');
         whereConditions[Op.or] = [
           { userId: { [Op.like]: `%${keyword}%` } },
+          { userName: { [Op.like]: `%${keyword}%` } },
           { id: { [Op.like]: `%${keyword}%` } }
         ];
       }
@@ -571,6 +580,7 @@ class ChatService {
         order: [['updatedAt', 'DESC']],
         limit: limit,
         offset: offset,
+        attributes: ['id', 'userId', 'userName', 'operatorId', 'status', 'createdAt', 'updatedAt', 'closedAt'],
         include: [
           {
             model: ChatMessage,

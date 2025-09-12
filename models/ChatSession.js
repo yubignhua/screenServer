@@ -24,6 +24,16 @@ module.exports = (sequelize) => {
         }
       }
     },
+    userName: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      validate: {
+        len: {
+          args: [0, 100],
+          msg: 'User name must be between 0 and 100 characters'
+        }
+      }
+    },
     operatorId: {
       type: DataTypes.UUID,
       allowNull: true,
