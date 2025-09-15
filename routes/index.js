@@ -55,11 +55,10 @@ module.exports = {
     // 传递server对象，初始化一个io实例
     const io = socketIo(server, {
       cors: {
-        // origin: ["http://localhost:7800", "http://127.0.0.1:7800","http://lshj.dev.northking.net", "http://dghj.product.northking.net"],
-        origin: "*",
+        origin: ["http://localhost:7800", "http://127.0.0.1:7800","http://lshj.dev.northking.net", "http://dghj.product.northking.net"],
         methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"],
-        credentials: false
+        credentials: true
       },
     });
     // 服务器监听客户端socketIo连接
