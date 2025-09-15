@@ -53,14 +53,38 @@ module.exports = {
   init: function (server) {
     //初始化房间和用户
     // 传递server对象，初始化一个io实例
-    const io = socketIo(server, {
-      cors: {
-        origin: ["http://localhost:7800", "http://127.0.0.1:7800","http://lshj.dev.northking.net", "http://dghj.product.northking.net"],
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"],
-        credentials: true
-      },
-    });
+    // const io = socketIo(server, {
+    //   cors: {
+    //     origin: ["http://localhost:7800", "http://127.0.0.1:7800","http://lshj.dev.northking.net", "http://dghj.product.northking.net"],
+    //     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    //     allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"],
+    //     credentials: true
+    //   },
+    // });
+
+const io = socketIo(server, {
+  cors: {
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        "http://localhost:7800",
+        "http://127.0.0.1:7800",
+        "http://lshj.dev.northking.net",
+        "http://dghj.product.northking.net",
+      ];
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"],
+    credentials: true,
+  },
+});
+
+
+
     // 服务器监听客户端socketIo连接
     io.on("connection", (socket) => {
       console.log(`用户已实现socket连接${socket.id}`);

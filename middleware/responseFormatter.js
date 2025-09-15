@@ -180,16 +180,45 @@ const requestLogger = (req, res, next) => {
 /**
  * CORS配置中间件
  */
-const corsConfig = (req, res, next) => {
-  res.header('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
+// const corsConfig = (req, res, next) => {
+//   res.header('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
+//   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+//   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+//   res.header('Access-Control-Allow-Credentials', 'true');
   
-  if (req.method === 'OPTIONS') {
+//   if (req.method === 'OPTIONS') {
+//     return res.status(200).end();
+//   }
+  
+//   next();
+// };
+
+const corsConfig = (req, res, next) => {
+  const allowedOrigins = [
+    "http://localhost:7800",
+    "http://127.0.0.1:7800",
+    "http://lshj.dev.northking.net",
+    "http://dghj.product.northking.net",
+  ];
+  const origin = req.headers.origin;
+
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Access-Control-Allow-Credentials", "true");
+  } else {
+    res.header("Access-Control-Allow-Origin", ""); // Deny unlisted origins
+  }
+
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+
+  if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
-  
+
   next();
 };
 
