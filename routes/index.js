@@ -70,10 +70,14 @@ const io = socketIo(server, {
         "http://127.0.0.1:7800",
         "http://lshj.dev.northking.net",
         "http://dghj.product.northking.net",
+        "https://lshj.dev.northking.net",
+        "https://dghj.product.northking.net"
       ];
+      // Allow requests with no origin (mobile apps, curl, etc.)
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.log(`CORS blocked origin: ${origin}`);
         callback(new Error("Not allowed by CORS"));
       }
     },

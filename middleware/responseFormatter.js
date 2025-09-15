@@ -199,13 +199,16 @@ const corsConfig = (req, res, next) => {
     "http://127.0.0.1:7800",
     "http://lshj.dev.northking.net",
     "http://dghj.product.northking.net",
+    "https://lshj.dev.northking.net",
+    "https://dghj.product.northking.net"
   ];
   const origin = req.headers.origin;
 
-  if (allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin || "*");
     res.header("Access-Control-Allow-Credentials", "true");
   } else {
+    console.log(`Express CORS blocked origin: ${origin}`);
     res.header("Access-Control-Allow-Origin", ""); // Deny unlisted origins
   }
 
