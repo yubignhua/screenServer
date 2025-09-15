@@ -64,32 +64,10 @@ module.exports = {
 
 const io = socketIo(server, {
   cors: {
-    origin: (origin, callback) => {
-      const allowedOrigins = [
-        "http://localhost:7800",
-        "http://127.0.0.1:7800",
-        "http://lshj.dev.northking.net",
-        "http://dghj.dev.northking.net", 
-        "http://dghj.product.northking.net",
-        "https://lshj.dev.northking.net",
-        "https://dghj.dev.northking.net",
-        "https://dghj.product.northking.net",
-        "http://149.88.88.205",
-        "https://149.88.88.205",
-        "http://149.88.88.205:3001",
-        "https://149.88.88.205:3001"
-      ];
-      // Allow requests with no origin (mobile apps, curl, etc.)
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.log(`Socket.IO CORS blocked origin: ${origin}`);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"],
-    credentials: true,
+    credentials: false,
   },
 });
 
