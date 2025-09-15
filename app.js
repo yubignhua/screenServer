@@ -59,7 +59,8 @@ app.set('view engine', 'jade');
 
 // Apply security and formatting middleware
 app.use(securityHeaders);
-app.use(corsConfig);
+// app.use(corsConfig);
+app.use(cors());
 app.use(requestLogger);
 app.use(responseFormatter);
 
