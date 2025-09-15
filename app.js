@@ -60,7 +60,25 @@ app.set('view engine', 'jade');
 // Apply security and formatting middleware
 app.use(securityHeaders);
 app.use(corsConfig);
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:7800",
+    "http://127.0.0.1:7800",
+    "http://lshj.dev.northking.net", 
+    "http://dghj.dev.northking.net",
+    "http://dghj.product.northking.net",
+    "https://lshj.dev.northking.net",
+    "https://dghj.dev.northking.net",
+    "https://dghj.product.northking.net",
+    "http://149.88.88.205",
+    "https://149.88.88.205",
+    "http://149.88.88.205:3001",
+    "https://149.88.88.205:3001"
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"]
+}));
 app.use(requestLogger);
 app.use(responseFormatter);
 

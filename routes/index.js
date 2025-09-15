@@ -69,11 +69,13 @@ const io = socketIo(server, {
         "http://localhost:7800",
         "http://127.0.0.1:7800",
         "http://lshj.dev.northking.net",
-        "http://dghj.dev.northking.net",
+        "http://dghj.dev.northking.net", 
         "http://dghj.product.northking.net",
         "https://lshj.dev.northking.net",
         "https://dghj.dev.northking.net",
         "https://dghj.product.northking.net",
+        "http://149.88.88.205",
+        "https://149.88.88.205",
         "http://149.88.88.205:3001",
         "https://149.88.88.205:3001"
       ];
