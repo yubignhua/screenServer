@@ -69,15 +69,19 @@ const io = socketIo(server, {
         "http://localhost:7800",
         "http://127.0.0.1:7800",
         "http://lshj.dev.northking.net",
+        "http://dghj.dev.northking.net",
         "http://dghj.product.northking.net",
         "https://lshj.dev.northking.net",
-        "https://dghj.product.northking.net"
+        "https://dghj.dev.northking.net",
+        "https://dghj.product.northking.net",
+        "http://149.88.88.205:3001",
+        "https://149.88.88.205:3001"
       ];
       // Allow requests with no origin (mobile apps, curl, etc.)
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.log(`CORS blocked origin: ${origin}`);
+        console.log(`Socket.IO CORS blocked origin: ${origin}`);
         callback(new Error("Not allowed by CORS"));
       }
     },
