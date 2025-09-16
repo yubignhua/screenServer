@@ -12,7 +12,7 @@ class ChatService {
     try {
       // 检查用户是否已有活跃会话
       const existingSession = await ChatSession.findActiveByUserId(userId);
-      
+      console.log('*****options1 ****',options )
       if (existingSession) {
         return {
           success: true,
@@ -22,7 +22,7 @@ class ChatService {
         };
       }
       
-      console.log('*****options ****',options )
+      console.log('*****options2 ****',options )
 
 
       // 创建新会话
