@@ -343,7 +343,7 @@ const io = socketIo(server, {
       try {
         const { userId, userName, groupName } = data;
 
-        console.log('*****groupName ****',groupName )
+        console.log('*****groupName **------**',groupName )
         
         // 验证用户ID是否存在
         if (!userId) {
