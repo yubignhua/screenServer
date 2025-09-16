@@ -9,6 +9,7 @@ let rooms = [];
 const ChatService = require('../services/ChatService');
 const NotificationService = require('../services/NotificationService');
 const OperatorService = require('../services/OperatorService');
+const { ChatSession } = require('../models');
 
 // 初始化 notification 服务
 const notificationService = new NotificationService();
@@ -340,7 +341,7 @@ const io = socketIo(server, {
     // 用户加入对话处理函数
     const  userJoinChatHandler = async (data, socket) => {
       try {
-        const { userId, userName } = data;
+        const { userId, userName, groupName } = data;
         
         // 验证用户ID是否存在
         if (!userId) {
@@ -354,7 +355,7 @@ const io = socketIo(server, {
         console.log(`User ${userId} joining chat with socket ${socket.id}`);
 
         // 创建或获取现有的聊天会话
-        const sessionResult = await ChatService.createChatSession(userId, { userName });
+        const sessionResult = await ChatService.createChatSession(userId, { userName, groupName });
         
         // 检查会话创建是否成功
         if (!sessionResult.success) {
@@ -402,6 +403,7 @@ const io = socketIo(server, {
                 sessionId: session.id,
                 userId,
                 userName: userName || '访客',
+                groupName: groupName || null,
                 timestamp: new Date().toISOString(),
                 message: '用户发起了聊天请求'
               });
@@ -652,13 +654,18 @@ const io = socketIo(server, {
         // 获取实际的客服ID
         const actualOperatorId = operatorIdMapping.get(operatorId) || operatorId;
 
+        // 获取会话信息以获取groupName
+        const session = await ChatSession.findByPk(sessionId);
+        const groupName = session ? session.groupName : null;
+
         // Send message through ChatService
         const messageResult = await ChatService.sendMessage(
           sessionId,
           actualOperatorId,
           'operator',
           content.trim(),
-          messageType
+          messageType,
+          { groupName }
         );
 
         if (!messageResult.success) {
@@ -680,6 +687,7 @@ const io = socketIo(server, {
           senderType: message.senderType,
           content: message.content,
           messageType: message.messageType,
+          groupName: message.groupName,
           createdAt: message.createdAt.toISOString()
         };
 

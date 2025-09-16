@@ -1,4 +1,5 @@
 const { DataTypes } = require('sequelize');
+const { validate } = require('uuid');
 
 module.exports = (sequelize) => {
   const ChatMessage = sequelize.define('ChatMessage', {
@@ -45,6 +46,16 @@ module.exports = (sequelize) => {
         isIn: {
           args: [['user', 'operator', 'system']],
           msg: 'Sender type must be one of: user, operator, system'
+        }
+      }
+    },
+    groupName: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      validate: {
+        len: {
+          args: [0, 100],
+          msg: 'Group name must be between 0 and 100 characters'
         }
       }
     },

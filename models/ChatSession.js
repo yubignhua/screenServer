@@ -1,7 +1,9 @@
 const { DataTypes } = require('sequelize');
 
-module.exports = (sequelize) => {
-  const ChatSession = sequelize.define('ChatSession', {
+module.
+exports = (sequelize) => {
+  const ChatSession = sequelize.define('ChatSession', 
+    {
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
@@ -31,6 +33,16 @@ module.exports = (sequelize) => {
         len: {
           args: [0, 100],
           msg: 'User name must be between 0 and 100 characters'
+        }
+      }
+    },
+    groupName: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      validate: {
+        len: {
+          args: [0, 100],
+          msg: 'Group name must be between 0 and 100 characters'
         }
       }
     },
@@ -70,7 +82,8 @@ module.exports = (sequelize) => {
         }
       }
     }
-  }, {
+  }, 
+  {
     tableName: 'chat_sessions',
     timestamps: true,
     indexes: [

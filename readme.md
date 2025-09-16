@@ -167,3 +167,62 @@ The application uses Socket.IO for real-time communication. The server listens f
 *   `REDIS_HOST`: The hostname of the Redis server.
 *   `REDIS_PORT`: The port of the Redis server.
 *   `REDIS_PASSWORD`: The password for the Redis server.
+
+
+
+
+
+据库命令作用和使用场景
+
+  1. db:init - 基础数据库初始化
+
+  npm run db:init
+  作用: 创建数据库表结构，不删除现有数据
+  使用场景:
+  - 首次部署项目时初始化数据库
+  - 添加新表或字段后同步数据库结构
+  - 保留现有数据的情况下更新表结构
+
+  2. db:init:force - 强制重建数据库
+
+  npm run db:init:force
+  作用: 删除所有现有表并重新创建，会丢失所有数据
+  使用场景:
+  - 开发环境中需要清空所有数据重新开始
+  - 数据库结构发生重大变更，需要完全重建
+  - 解决数据库结构冲突问题
+
+  3. db:seed - 添加种子数据
+
+  npm run db:seed
+  作用: 在现有数据库中添加测试/示例数据
+  使用场景:
+  - 为开发环境添加测试数据
+  - 为演示环境准备示例数据
+  - 快速填充基础配置数据
+
+  4. db:test - 测试数据库连接
+
+  npm run db:test
+  作用: 测试数据库连接和表关联关系，不修改数据
+  使用场景:
+  - 验证数据库配置是否正确
+  - 检查模型关联关系是否正常
+  - 部署前的连接测试
+
+  5. db:reset - 完全重置数据库
+
+  npm run db:reset
+  作用: 等同于 --force 
+  --seed，删除所有数据并重建表，然后添加种子数据
+  使用场景:
+  - 开发环境快速重置到初始状态
+  - 清理测试数据后重新开始
+  - 演示前准备干净的环境
+
+  推荐使用顺序
+
+  1. 首次部署: npm run db:init
+  2. 开发测试: npm run db:reset
+  3. 生产部署: npm run db:init → npm run db:test
+  4. 故障排查: npm run db:test

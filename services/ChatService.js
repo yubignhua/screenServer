@@ -54,7 +54,7 @@ class ChatService {
    * @param {string} messageType - 消息类型 ('text' | 'image' | 'system')
    * @returns {Promise<Object>} 发送结果
    */
-  async sendMessage(sessionId, senderId, senderType, content, messageType = 'text') {
+  async sendMessage(sessionId, senderId, senderType, content, messageType = 'text', options = {}) {
     try {
       // 验证会话是否存在
       const session = await ChatSession.findByPk(sessionId);
@@ -82,7 +82,8 @@ class ChatService {
         senderType,
         content,
         messageType,
-        isRead: false
+        isRead: false,
+        groupName: options.groupName
       });
 
       // 如果是用户发送的第一条消息，激活会话
