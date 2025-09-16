@@ -504,6 +504,7 @@ const io = socketIo(server, {
               sessionId,
               userId,
               userName: session.userName || '访客',
+              groupName: session.groupName || '企业',
               content: content.trim(),
               timestamp: message.createdAt.toISOString(),
               messageType

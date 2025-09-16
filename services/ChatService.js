@@ -584,7 +584,7 @@ class ChatService {
         order: [['updatedAt', 'DESC']],
         limit: limit,
         offset: offset,
-        attributes: ['id', 'userId', 'userName', 'operatorId', 'status', 'createdAt', 'updatedAt', 'closedAt'],
+        attributes: ['id', 'userId', 'userName','groupName', 'operatorId', 'status', 'createdAt', 'updatedAt', 'closedAt'],
         include: [
           {
             model: ChatMessage,
