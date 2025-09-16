@@ -342,6 +342,8 @@ const io = socketIo(server, {
     const  userJoinChatHandler = async (data, socket) => {
       try {
         const { userId, userName, groupName } = data;
+
+        console.log('*****groupName ****',groupName )
         
         // 验证用户ID是否存在
         if (!userId) {

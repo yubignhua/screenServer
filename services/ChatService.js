@@ -21,6 +21,9 @@ class ChatService {
           message: 'Found existing active session'
         };
       }
+      
+      console.log('*****options ****',options )
+
 
       // 创建新会话
       const session = await ChatSession.create({
